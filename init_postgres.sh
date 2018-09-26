@@ -1,7 +1,13 @@
 #!/bin/bash
 #This script need right to become postgres user (so root) and to read/write in httpd directory
 
-source config_init.sh
+#Client configuration
+client_id=${CLIENT_ID}
+client_secret=${CLIENT_SECRET}
+redirect_uri=${REDIRECT_URI}
+grant_types="authorization_code"
+scope="api"
+user_id=""
 
 #######################################--Fonctions--###############################################
 
@@ -25,34 +31,21 @@ create_client="INSERT INTO oauth_clients (client_id,client_secret,redirect_uri,g
 
 ###################################################################################################
 
-#Welcome Message
-info "This script will create a new Oauth role and an associated database for Mattermost-LDAP\nTo edit configuration please edit this script before running !\n"
-warn "SuperUser right must be ask to create the new role and database in postgres\n"
-info "Press ctrl+c to stop the script"
-sleep 5
-
-
-#Creating Oauth role and associated database (need admin account on postgres)
-info "Creation of role $oauth_user and database $oauth_db ... (need to be root)"
-sudo -S -u postgres psql -c "CREATE DATABASE $oauth_db_name;"
-sudo -S -u postgres psql -c "CREATE USER $oauth_user WITH ENCRYPTED PASSWORD '$oauth_pass';"
-sudo -S -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE $oauth_db_name TO $oauth_user;" 
-
 #Creating tables for ouath database (use oauth role)
 info "Creation of tables for database $oauth_db (using $oauth_user)"
-psql postgres://$oauth_user:$oauth_pass@$ip:$port/$oauth_db_name -c "$create_table_oauth_client"
-psql postgres://$oauth_user:$oauth_pass@$ip:$port/$oauth_db_name -c "$create_table_oauth_access_tokens"
-psql postgres://$oauth_user:$oauth_pass@$ip:$port/$oauth_db_name -c "$create_table_oauth_authorization_codes"
-psql postgres://$oauth_user:$oauth_pass@$ip:$port/$oauth_db_name -c "$create_table_oauth_refresh_tokens"
-psql postgres://$oauth_user:$oauth_pass@$ip:$port/$oauth_db_name -c "$create_table_users"
-psql postgres://$oauth_user:$oauth_pass@$ip:$port/$oauth_db_name -c "$create_table_oauth_scopes"
+psql -d $POSTGRES_DB -c "$create_table_oauth_client"
+psql -d $POSTGRES_DB -c "$create_table_oauth_access_tokens"
+psql -d $POSTGRES_DB -c "$create_table_oauth_authorization_codes"
+psql -d $POSTGRES_DB -c "$create_table_oauth_refresh_tokens"
+psql -d $POSTGRES_DB -c "$create_table_users"
+psql -d $POSTGRES_DB -c "$create_table_oauth_scopes"
 
 #Insert new client in the database
 info "Insert new client in the database"
-psql postgres://$oauth_user:$oauth_pass@$ip:$port/$oauth_db_name -c "$create_client"
+psql -d $POSTGRES_DB -c "$create_client"
 
 #Verification
-psql postgres://$oauth_user:$oauth_pass@$ip:$port/$oauth_db_name -c "SELECT * from oauth_clients WHERE client_id='$client_id';" | grep '(1'
+psql -d $POSTGRES_DB -c "SELECT * from oauth_clients WHERE client_id='$client_id';" | grep '(1'
 
 if [ $? ]
 then ok "Client has been created ! Oauth Database is configured.\n"
